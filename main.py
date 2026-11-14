@@ -14,6 +14,7 @@ Writes the image to /output/entry.png (or $MAKEFUN_OUTPUT_DIR/entry.png):
 exactly the bundled entry.png bytes, deterministically, on every run.
 """
 
+import hashlib
 import os
 import shutil
 from pathlib import Path
@@ -21,10 +22,21 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE = HERE / "entry.png"
 
+# sha256 of the bundled entry.png, verified at build time. If the bundled
+# image is ever corrupted or swapped, refuse to run rather than ship a
+# different picture to the judge.
+EXPECTED_SHA256 = "efe004b952ebb9bbf2046a7915f562554e43653074086071048f118d911c1de8"
+
 OUTPUT_DIR = Path(os.environ.get("MAKEFUN_OUTPUT_DIR", "/output"))
 
 
 def main() -> None:
+    # Verify the bundled image is exactly the one we built, before copying.
+    digest = hashlib.sha256(SOURCE.read_bytes()).hexdigest()
+    if digest != EXPECTED_SHA256:
+        raise SystemExit(
+            f"entry.png sha256 mismatch: got {digest}, expected {EXPECTED_SHA256}"
+        )
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     target = OUTPUT_DIR / "entry.png"
     shutil.copyfile(SOURCE, target)
